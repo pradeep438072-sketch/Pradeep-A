@@ -1,0 +1,7 @@
+{
+  "name": "MediVoice AI",
+  "description": "Medicine Reminder & AI Voice Assistant to manage medicines, schedule reminders, track dosage, and interact via voice.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
+
