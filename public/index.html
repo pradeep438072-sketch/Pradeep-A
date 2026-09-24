@@ -1,0 +1,1366 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MediVoice AI — Medicine Reminder & AI Voice Assistant</title>
+  <meta name="description" content="AI-powered medicine reminder, dosage management, and conversational voice assistant.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Plus Jakarta Sans', 'system-ui', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace']
+          },
+          colors: {
+            brand: {
+              50: '#ecfdf5',
+              100: '#d1fae5',
+              500: '#10b981',
+              600: '#059669',
+              700: '#047857',
+              800: '#065f46',
+              900: '#064e3b'
+            },
+            medical: {
+              blue: '#0284c7',
+              cyan: '#06b6d4',
+              navy: '#0f172a'
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    @keyframes pulse-ring {
+      0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
+      70% { transform: scale(1); box-shadow: 0 0 0 20px rgba(16, 185, 129, 0); }
+      100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+    }
+    .voice-pulse {
+      animation: pulse-ring 2s infinite cubic-bezier(0.4, 0, 0.6, 1);
+    }
+    .custom-scrollbar::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+      background-color: #cbd5e1;
+      border-radius: 9999px;
+    }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-900 font-sans min-h-screen flex flex-col antialiased">
+
+  <!-- TOP NOTIFICATION BANNER (For Real Reminders) -->
+  <div id="alarmBanner" class="hidden bg-emerald-600 text-white px-4 py-3 shadow-lg fixed top-0 left-0 right-0 z-50 flex items-center justify-between transition-all">
+    <div class="flex items-center space-x-3">
+      <div class="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center font-bold">🔔</div>
+      <div>
+        <p class="font-bold text-sm tracking-wide uppercase">Medicine Reminder Alert</p>
+        <p id="alarmBannerText" class="text-sm">Time to take Paracetamol (500 mg tablet)</p>
+      </div>
+    </div>
+    <div class="flex items-center space-x-2">
+      <button onclick="dismissAlarm(true)" class="bg-white text-emerald-800 font-bold px-3 py-1.5 rounded-lg text-xs hover:bg-emerald-50 transition">Mark as Taken</button>
+      <button onclick="dismissAlarm(false)" class="bg-emerald-800 text-white font-semibold px-3 py-1.5 rounded-lg text-xs hover:bg-emerald-900 transition">Snooze (10m)</button>
+    </div>
+  </div>
+
+  <!-- NAVIGATION BAR -->
+  <header class="bg-white border-b border-slate-200 sticky top-0 z-40">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex items-center justify-between h-16">
+        <!-- Logo -->
+        <div class="flex items-center space-x-3 cursor-pointer" onclick="switchTab('dashboard')">
+          <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-400 flex items-center justify-center text-white font-bold text-xl shadow-md">
+            💊
+          </div>
+          <div>
+            <div class="flex items-center space-x-1.5">
+              <span class="text-xl font-extrabold tracking-tight text-slate-900">MediVoice</span>
+              <span class="bg-emerald-100 text-emerald-800 text-[10px] font-bold px-1.5 py-0.5 rounded tracking-wider">AI</span>
+            </div>
+            <p class="text-[11px] text-slate-500 font-medium">Medicine Reminder & Assistant</p>
+          </div>
+        </div>
+
+        <!-- Navigation Links (Authenticated View) -->
+        <nav id="mainNav" class="hidden md:flex items-center space-x-1">
+          <button onclick="switchTab('dashboard')" class="nav-btn active px-3.5 py-2 rounded-lg text-sm font-semibold text-slate-700 hover:text-emerald-600 hover:bg-emerald-50 transition" data-tab="dashboard">Dashboard</button>
+          <button onclick="switchTab('schedule')" class="nav-btn px-3.5 py-2 rounded-lg text-sm font-semibold text-slate-700 hover:text-emerald-600 hover:bg-emerald-50 transition" data-tab="schedule">Today's Schedule</button>
+          <button onclick="switchTab('add-medicine')" class="nav-btn px-3.5 py-2 rounded-lg text-sm font-semibold text-slate-700 hover:text-emerald-600 hover:bg-emerald-50 transition" data-tab="add-medicine">+ Add Medicine</button>
+          <button onclick="switchTab('voice')" class="nav-btn px-3.5 py-2 rounded-lg text-sm font-semibold text-slate-700 hover:text-emerald-600 hover:bg-emerald-50 transition flex items-center space-x-1" data-tab="voice">
+            <span>🎙️</span>
+            <span>Voice Assistant</span>
+          </button>
+          <button onclick="switchTab('history')" class="nav-btn px-3.5 py-2 rounded-lg text-sm font-semibold text-slate-700 hover:text-emerald-600 hover:bg-emerald-50 transition" data-tab="history">History Logs</button>
+        </nav>
+
+        <!-- User / Auth Quick Status -->
+        <div class="flex items-center space-x-3">
+          <div id="userHeaderBlock" class="hidden items-center space-x-3">
+            <div class="text-right hidden sm:block">
+              <p id="headerUserName" class="text-sm font-bold text-slate-800">Sarah Jenkins</p>
+              <p class="text-[11px] text-emerald-600 font-medium flex items-center justify-end space-x-1">
+                <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                <span>Active Profile</span>
+              </p>
+            </div>
+            <div class="w-9 h-9 rounded-full bg-slate-200 text-slate-700 font-bold flex items-center justify-center border-2 border-emerald-500 text-sm" id="userAvatar">
+              SJ
+            </div>
+            <button onclick="logout()" title="Logout" class="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
+            </button>
+          </div>
+          <button id="authBtn" onclick="switchTab('auth')" class="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold px-4 py-2 rounded-lg text-sm transition shadow-sm">
+            Sign In
+          </button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- MAIN CONTAINER -->
+  <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
+
+    <!-- ============================================== -->
+    <!-- 1. AUTHENTICATION (LOGIN & REGISTRATION) VIEW -->
+    <!-- ============================================== -->
+    <section id="view-auth" class="max-w-md mx-auto py-8">
+      <div class="bg-white border border-slate-200 shadow-xl rounded-2xl p-6 sm:p-8">
+        
+        <!-- Tab selector between Login & Register -->
+        <div class="flex border-b border-slate-200 mb-6">
+          <button id="authTabLogin" onclick="toggleAuthMode('login')" class="flex-1 pb-3 text-sm font-bold text-emerald-600 border-b-2 border-emerald-600 transition">Sign In</button>
+          <button id="authTabRegister" onclick="toggleAuthMode('register')" class="flex-1 pb-3 text-sm font-bold text-slate-400 hover:text-slate-600 transition">Create Account</button>
+        </div>
+
+        <!-- LOGIN FORM -->
+        <form id="loginForm" onsubmit="handleLogin(event)" class="space-y-4">
+          <div>
+            <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">Email or Username</label>
+            <input type="email" id="loginEmail" value="sarah.jenkins@example.com" required class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition" placeholder="name@example.com">
+          </div>
+          <div>
+            <div class="flex items-center justify-between mb-1.5">
+              <label class="text-xs font-bold uppercase tracking-wider text-slate-600">Password</label>
+              <button type="button" onclick="showForgotPasswordModal()" class="text-xs font-semibold text-emerald-600 hover:underline">Forgot password?</button>
+            </div>
+            <div class="relative">
+              <input type="password" id="loginPassword" value="password123" required class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition pr-10" placeholder="••••••••">
+              <button type="button" onclick="togglePasswordVisibility('loginPassword')" class="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600 text-xs">
+                👁️
+              </button>
+            </div>
+          </div>
+          <div class="flex items-center justify-between pt-1">
+            <label class="flex items-center space-x-2 text-xs text-slate-600 cursor-pointer">
+              <input type="checkbox" id="rememberMe" checked class="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500">
+              <span>Remember me</span>
+            </label>
+          </div>
+          <button type="submit" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 rounded-xl text-sm shadow-md transition transform active:scale-98">
+            Sign In to MediVoice AI
+          </button>
+          
+          <div class="pt-4 border-t border-slate-100 text-center">
+            <p class="text-xs text-slate-500">Demo test credentials:</p>
+            <code class="text-xs bg-slate-100 text-slate-700 px-2 py-1 rounded inline-block mt-1 font-mono">sarah.jenkins@example.com / password123</code>
+          </div>
+        </form>
+
+        <!-- REGISTRATION FORM -->
+        <form id="registerForm" onsubmit="handleRegister(event)" class="space-y-4 hidden">
+          <div>
+            <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">Full Name</label>
+            <input type="text" id="regName" required class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition" placeholder="John Doe">
+          </div>
+          <div>
+            <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">Email Address</label>
+            <input type="email" id="regEmail" required class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition" placeholder="john@example.com">
+          </div>
+          <div>
+            <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">Phone Number</label>
+            <input type="tel" id="regPhone" class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition" placeholder="+1 (555) 000-0000">
+          </div>
+          <div>
+            <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">Password</label>
+            <input type="password" id="regPassword" required class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition" placeholder="Min. 8 characters">
+          </div>
+          <div>
+            <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">Confirm Password</label>
+            <input type="password" id="regConfirmPassword" required class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition" placeholder="Confirm password">
+          </div>
+          <button type="submit" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 rounded-xl text-sm shadow-md transition">
+            Create Account
+          </button>
+        </form>
+
+      </div>
+    </section>
+
+    <!-- ============================================== -->
+    <!-- 2. MAIN DASHBOARD VIEW -->
+    <!-- ============================================== -->
+    <section id="view-dashboard" class="space-y-6">
+      
+      <!-- Greeting & Real-time Clock Banner -->
+      <div class="bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-700 rounded-2xl text-white p-6 sm:p-8 shadow-lg relative overflow-hidden">
+        <div class="relative z-10 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          <div>
+            <div class="inline-flex items-center space-x-2 bg-white/20 backdrop-blur px-3 py-1 rounded-full text-xs font-semibold mb-2">
+              <span class="w-2 h-2 rounded-full bg-emerald-300 animate-pulse"></span>
+              <span>Daily Adherence Monitor</span>
+            </div>
+            <h1 class="text-2xl sm:text-3xl font-extrabold tracking-tight">
+              Hello, <span id="dashGreetingUser">Sarah</span> 👋
+            </h1>
+            <p class="text-emerald-100 text-sm mt-1 max-w-xl">
+              You are staying on track with your medical regimen. MediVoice AI is actively monitoring your medication schedule.
+            </p>
+          </div>
+          <!-- Clock & Date Widget -->
+          <div class="bg-black/20 backdrop-blur-md rounded-xl p-4 text-center md:text-right border border-white/10 min-w-[200px]">
+            <p id="liveDate" class="text-xs uppercase tracking-wider font-semibold text-emerald-200">Thursday, Sep 24, 2026</p>
+            <p id="liveClock" class="text-2xl sm:text-3xl font-mono font-bold tracking-tight text-white mt-0.5">08:00:00 AM</p>
+            <span class="text-[10px] text-emerald-300">Auto-synced with system clock</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- KEY METRICS STATS CARDS -->
+      <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+        <!-- Total Today -->
+        <div class="bg-white border border-slate-200 rounded-xl p-4 shadow-sm hover:shadow transition">
+          <div class="flex items-center justify-between text-slate-500 mb-2">
+            <span class="text-xs font-bold uppercase tracking-wider">Today's Total</span>
+            <span class="text-lg">📋</span>
+          </div>
+          <div class="flex items-baseline space-x-2">
+            <span id="statTotal" class="text-2xl sm:text-3xl font-extrabold text-slate-900">4</span>
+            <span class="text-xs text-slate-500">doses</span>
+          </div>
+          <p class="text-[11px] text-slate-400 mt-1">Across 3 medicines</p>
+        </div>
+
+        <!-- Taken -->
+        <div class="bg-white border border-emerald-100 bg-emerald-50/30 rounded-xl p-4 shadow-sm hover:shadow transition">
+          <div class="flex items-center justify-between text-emerald-600 mb-2">
+            <span class="text-xs font-bold uppercase tracking-wider">Taken</span>
+            <span class="text-lg">✅</span>
+          </div>
+          <div class="flex items-baseline space-x-2">
+            <span id="statTaken" class="text-2xl sm:text-3xl font-extrabold text-emerald-600">1</span>
+            <span class="text-xs text-emerald-700">completed</span>
+          </div>
+          <p class="text-[11px] text-emerald-600 mt-1">Adherence 50%</p>
+        </div>
+
+        <!-- Pending -->
+        <div class="bg-white border border-amber-100 bg-amber-50/30 rounded-xl p-4 shadow-sm hover:shadow transition">
+          <div class="flex items-center justify-between text-amber-600 mb-2">
+            <span class="text-xs font-bold uppercase tracking-wider">Pending</span>
+            <span class="text-lg">⏳</span>
+          </div>
+          <div class="flex items-baseline space-x-2">
+            <span id="statPending" class="text-2xl sm:text-3xl font-extrabold text-amber-600">3</span>
+            <span class="text-xs text-amber-700">upcoming</span>
+          </div>
+          <p class="text-[11px] text-amber-600 mt-1">Scheduled for today</p>
+        </div>
+
+        <!-- Missed -->
+        <div class="bg-white border border-red-100 bg-red-50/30 rounded-xl p-4 shadow-sm hover:shadow transition">
+          <div class="flex items-center justify-between text-red-600 mb-2">
+            <span class="text-xs font-bold uppercase tracking-wider">Missed</span>
+            <span class="text-lg">⚠️</span>
+          </div>
+          <div class="flex items-baseline space-x-2">
+            <span id="statMissed" class="text-2xl sm:text-3xl font-extrabold text-red-600">0</span>
+            <span class="text-xs text-red-700">missed</span>
+          </div>
+          <p class="text-[11px] text-red-500 mt-1">Great job!</p>
+        </div>
+
+        <!-- Next Reminder Highlight -->
+        <div class="bg-slate-900 text-white rounded-xl p-4 shadow-sm col-span-2 sm:col-span-1 lg:col-span-1 border border-slate-800">
+          <div class="flex items-center justify-between text-slate-400 mb-2">
+            <span class="text-xs font-bold uppercase tracking-wider text-teal-400">Next Reminder</span>
+            <span class="text-lg">⏰</span>
+          </div>
+          <p id="nextMedName" class="font-bold text-sm text-white truncate">Amoxicillin</p>
+          <p id="nextMedTime" class="text-xs text-teal-300 font-mono mt-0.5">02:00 PM</p>
+          <span class="inline-block mt-2 text-[10px] bg-teal-900/60 text-teal-200 border border-teal-700 px-2 py-0.5 rounded-full font-medium">With Food</span>
+        </div>
+      </div>
+
+      <!-- MAIN TWO-COLUMN SECTION -->
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        
+        <!-- Left 2 Cols: Today's Medication Schedule -->
+        <div class="lg:col-span-2 bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
+          <div class="flex items-center justify-between pb-4 border-b border-slate-100 mb-4">
+            <div>
+              <h2 class="text-lg font-bold text-slate-900">Today's Medicine Schedule</h2>
+              <p class="text-xs text-slate-500">Live timeline of scheduled doses and intake status</p>
+            </div>
+            <button onclick="switchTab('add-medicine')" class="text-xs font-bold text-emerald-600 hover:text-emerald-700 bg-emerald-50 px-3 py-1.5 rounded-lg border border-emerald-200 transition">
+              + New Medicine
+            </button>
+          </div>
+
+          <div id="scheduleTimeline" class="space-y-3">
+            <!-- Dynamic Schedule Cards will be injected here -->
+          </div>
+        </div>
+
+        <!-- Right Col: Voice Assistant Quick Action & Daily Adherence -->
+        <div class="space-y-6">
+          
+          <!-- Voice Assistant Interactive Widget -->
+          <div class="bg-gradient-to-br from-slate-900 via-teal-950 to-slate-900 text-white rounded-2xl p-6 shadow-md border border-teal-800/40 relative">
+            <div class="flex items-center justify-between mb-4">
+              <div class="flex items-center space-x-2">
+                <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                <span class="text-xs font-bold uppercase tracking-wider text-teal-300">Voice Assistant</span>
+              </div>
+              <span class="text-xs text-slate-400">Web Speech API</span>
+            </div>
+            
+            <p class="text-sm text-slate-300 mb-4">
+              Speak naturally to query your medicine routine or log your doses.
+            </p>
+
+            <div class="flex flex-col items-center justify-center py-4">
+              <button id="voiceBtnDashboard" onclick="toggleVoiceRecognition()" class="w-16 h-16 rounded-full bg-emerald-500 hover:bg-emerald-600 text-white flex items-center justify-center text-2xl shadow-lg transition transform hover:scale-105 active:scale-95">
+                🎙️
+              </button>
+              <p id="voiceStatusDashboard" class="text-xs text-slate-400 mt-3 font-medium">Click to speak to MediVoice</p>
+            </div>
+
+            <!-- Quick Suggested Voice Queries -->
+            <div class="space-y-1.5 pt-3 border-t border-slate-800">
+              <p class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Try saying:</p>
+              <button onclick="executeVoiceQuery('What medicines do I have today?')" class="w-full text-left text-xs bg-white/5 hover:bg-white/10 px-3 py-2 rounded-lg text-teal-200 transition">
+                "What medicines do I have today?"
+              </button>
+              <button onclick="executeVoiceQuery('I took my Paracetamol')" class="w-full text-left text-xs bg-white/5 hover:bg-white/10 px-3 py-2 rounded-lg text-teal-200 transition">
+                "I took my Paracetamol"
+              </button>
+            </div>
+          </div>
+
+          <!-- Medical Disclaimer Card -->
+          <div class="bg-amber-50 border border-amber-200 rounded-xl p-4 text-amber-900">
+            <div class="flex items-start space-x-3">
+              <span class="text-xl">ℹ️</span>
+              <div>
+                <p class="text-xs font-bold uppercase tracking-wider text-amber-800">Healthcare Disclaimer</p>
+                <p class="text-xs text-amber-700 mt-1 leading-relaxed">
+                  MediVoice AI is a dosage reminder and schedule assistant. Always follow your prescribing doctor and licensed pharmacist's directions.
+                </p>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+
+    </section>
+
+    <!-- ============================================== -->
+    <!-- 3. TODAY'S SCHEDULE FULL VIEW -->
+    <!-- ============================================== -->
+    <section id="view-schedule" class="space-y-6 hidden">
+      <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 class="text-2xl font-extrabold text-slate-900">Full Medication Schedule</h1>
+          <p class="text-sm text-slate-500">Manage individual dose times, food instructions, and intake records</p>
+        </div>
+        <div class="flex items-center space-x-2">
+          <button onclick="requestNotificationAccess()" class="bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-2 rounded-lg text-xs font-bold transition flex items-center space-x-1.5">
+            <span>🔔</span>
+            <span>Enable Browser Alerts</span>
+          </button>
+          <button onclick="switchTab('add-medicine')" class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg text-xs font-bold transition shadow-sm">
+            + Add Medicine
+          </button>
+        </div>
+      </div>
+
+      <div id="fullScheduleList" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <!-- Injected via JavaScript -->
+      </div>
+    </section>
+
+    <!-- ============================================== -->
+    <!-- 4. ADD MEDICINE & DOSAGE MANAGEMENT -->
+    <!-- ============================================== -->
+    <section id="view-add-medicine" class="max-w-3xl mx-auto space-y-6 hidden">
+      <div class="bg-white border border-slate-200 rounded-2xl p-6 sm:p-8 shadow-sm">
+        <div class="pb-6 border-b border-slate-100">
+          <h1 class="text-2xl font-extrabold text-slate-900">Add New Medicine</h1>
+          <p class="text-sm text-slate-500 mt-1">Configure dosage limits, frequency, reminder times, and food instructions</p>
+        </div>
+
+        <form id="addMedicineForm" onsubmit="handleAddMedicine(event)" class="mt-6 space-y-6">
+          
+          <!-- Basic Info -->
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">Medicine Name *</label>
+              <input type="text" id="medName" required placeholder="e.g. Paracetamol, Amoxicillin" class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition">
+            </div>
+            <div>
+              <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">Medicine Type</label>
+              <select id="medType" class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition">
+                <option value="Tablet">Tablet</option>
+                <option value="Capsule">Capsule</option>
+                <option value="Syrup">Syrup / Liquid</option>
+                <option value="Injection">Injection</option>
+                <option value="Drops">Drops</option>
+                <option value="Inhaler">Inhaler</option>
+                <option value="Topical">Cream / Ointment</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Dosage Management Section -->
+          <div class="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-4">
+            <h3 class="text-xs font-bold uppercase tracking-wider text-emerald-800 flex items-center space-x-1.5">
+              <span>⚖️</span>
+              <span>Dosage Management</span>
+            </h3>
+            
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div>
+                <label class="block text-xs font-semibold text-slate-600 mb-1">Dosage Name / Description</label>
+                <input type="text" id="dosageName" placeholder="e.g. 500 mg tablet" required class="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+              </div>
+              <div>
+                <label class="block text-xs font-semibold text-slate-600 mb-1">Dosage Amount & Unit</label>
+                <div class="flex space-x-2">
+                  <input type="number" id="dosageAmount" value="500" min="0.1" step="any" required class="w-2/3 px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+                  <select id="dosageUnit" class="w-1/3 px-2 py-2 bg-white border border-slate-200 rounded-lg text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+                    <option value="mg">mg</option>
+                    <option value="ml">ml</option>
+                    <option value="g">g</option>
+                    <option value="mcg">mcg</option>
+                    <option value="drops">drops</option>
+                    <option value="puffs">puffs</option>
+                  </select>
+                </div>
+              </div>
+              <div>
+                <label class="block text-xs font-semibold text-slate-600 mb-1">Maximum Daily Limit</label>
+                <input type="text" id="dosageLimit" placeholder="e.g. Max 2 tablets per day" class="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+              </div>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label class="block text-xs font-semibold text-slate-600 mb-1">Single Intake Amount</label>
+                <input type="text" id="dailyDosage" placeholder="e.g. 1 tablet, 5ml" required class="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+              </div>
+              <div>
+                <label class="block text-xs font-semibold text-slate-600 mb-1">Number of times per day</label>
+                <select id="timesPerDay" onchange="renderReminderTimeInputs()" class="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+                  <option value="1">1 time per day</option>
+                  <option value="2" selected>2 times per day</option>
+                  <option value="3">3 times per day</option>
+                  <option value="4">4 times per day</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- Dynamic Reminder Times -->
+            <div>
+              <label class="block text-xs font-semibold text-slate-600 mb-1.5">Individual Reminder Times for Each Dose</label>
+              <div id="reminderTimesContainer" class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <!-- Generated by JS -->
+              </div>
+            </div>
+          </div>
+
+          <!-- Schedule Dates & Food Context -->
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div>
+              <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">Start Date</label>
+              <input type="date" id="medStartDate" required class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+            </div>
+            <div>
+              <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">End Date (Optional)</label>
+              <input type="date" id="medEndDate" class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+            </div>
+            <div>
+              <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">Food Relationship</label>
+              <select id="foodRelation" class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+                <option value="After Food">After Food</option>
+                <option value="Before Food">Before Food</option>
+                <option value="With Food">With Food</option>
+                <option value="Empty Stomach">Empty Stomach</option>
+                <option value="Before Bed">Before Bed</option>
+                <option value="No Specific Relation">No Specific Relation</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Additional Notes -->
+          <div>
+            <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">Doctor Notes / Special Instructions</label>
+            <textarea id="medNotes" rows="2" placeholder="e.g. Drink plenty of water, avoid grapefruit juice" class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none"></textarea>
+          </div>
+
+          <!-- Submit Buttons -->
+          <div class="flex items-center justify-end space-x-3 pt-4 border-t border-slate-100">
+            <button type="button" onclick="switchTab('dashboard')" class="px-5 py-2.5 border border-slate-200 text-slate-700 font-semibold rounded-xl text-sm hover:bg-slate-50 transition">
+              Cancel
+            </button>
+            <button type="submit" class="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-sm shadow-md transition flex items-center space-x-2">
+              <span>💾</span>
+              <span>Save Medicine Schedule</span>
+            </button>
+          </div>
+
+        </form>
+      </div>
+    </section>
+
+    <!-- ============================================== -->
+    <!-- 5. VOICE ASSISTANT FULL VIEW -->
+    <!-- ============================================== -->
+    <section id="view-voice" class="max-w-3xl mx-auto space-y-6 hidden">
+      <div class="bg-white border border-slate-200 rounded-2xl p-6 sm:p-8 shadow-sm">
+        
+        <div class="text-center max-w-lg mx-auto mb-8">
+          <div class="w-16 h-16 mx-auto rounded-2xl bg-gradient-to-tr from-emerald-500 to-teal-400 flex items-center justify-center text-3xl shadow-lg mb-3">
+            🎙️
+          </div>
+          <h1 class="text-2xl font-extrabold text-slate-900">MediVoice AI Assistant</h1>
+          <p class="text-sm text-slate-500 mt-1">
+            Hands-free voice recognition and speech feedback to query and log your medicine routines.
+          </p>
+        </div>
+
+        <!-- Voice Activation Hub -->
+        <div class="bg-slate-900 text-white rounded-2xl p-8 text-center relative overflow-hidden">
+          <div class="relative z-10 flex flex-col items-center justify-center">
+            
+            <!-- Voice Pulse Button -->
+            <button id="mainVoiceMic" onclick="toggleVoiceRecognition()" class="w-24 h-24 rounded-full bg-emerald-500 hover:bg-emerald-600 text-white flex items-center justify-center text-4xl shadow-2xl transition transform hover:scale-105 active:scale-95 cursor-pointer">
+              🎙️
+            </button>
+
+            <p id="mainVoiceStatus" class="text-sm font-semibold text-emerald-300 mt-4">
+              Tap microphone to speak
+            </p>
+            <p id="mainVoiceSubtext" class="text-xs text-slate-400 mt-1">
+              Supports English voice commands
+            </p>
+
+            <!-- Live Speech Transcript Bubble -->
+            <div id="liveTranscriptBox" class="mt-6 w-full max-w-md bg-white/10 backdrop-blur rounded-xl p-4 text-left border border-white/10 hidden">
+              <p class="text-[10px] uppercase font-bold text-teal-300 tracking-wider">Listening / Transcript</p>
+              <p id="liveTranscriptText" class="text-sm font-medium text-white mt-1 italic">"..."</p>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- Conversation History Log -->
+        <div class="mt-8 space-y-4">
+          <div class="flex items-center justify-between">
+            <h3 class="text-xs font-bold uppercase tracking-wider text-slate-600">Conversation History</h3>
+            <button onclick="clearVoiceLog()" class="text-xs text-slate-400 hover:text-red-500 transition">Clear Log</button>
+          </div>
+
+          <div id="voiceChatLog" class="space-y-3 max-h-80 overflow-y-auto custom-scrollbar p-2">
+            <!-- Initial Welcome Message -->
+            <div class="flex items-start space-x-3">
+              <div class="w-8 h-8 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold text-xs">
+                AI
+              </div>
+              <div class="bg-slate-100 rounded-2xl rounded-tl-none p-3.5 max-w-md text-xs text-slate-800">
+                Hello! I am MediVoice AI. You can say things like:
+                <ul class="list-disc list-inside mt-1.5 space-y-0.5 text-slate-600">
+                  <li>"What medicines do I have today?"</li>
+                  <li>"Did I take my Paracetamol?"</li>
+                  <li>"Mark Paracetamol as taken"</li>
+                  <li>"What is my next reminder?"</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ============================================== -->
+    <!-- 6. HISTORY & LOGS VIEW -->
+    <!-- ============================================== -->
+    <section id="view-history" class="space-y-6 hidden">
+      <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 class="text-2xl font-extrabold text-slate-900">Medicine History & Logs</h1>
+          <p class="text-sm text-slate-500">Chronological audit log of taken, skipped, and snoozed doses</p>
+        </div>
+        <button onclick="exportHistoryCSV()" class="bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold px-4 py-2 rounded-lg text-xs transition flex items-center space-x-1.5">
+          <span>📥</span>
+          <span>Export Medical Report</span>
+        </button>
+      </div>
+
+      <div class="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-sm text-slate-600">
+            <thead class="bg-slate-50 border-b border-slate-200 text-xs font-bold uppercase tracking-wider text-slate-700">
+              <tr>
+                <th class="py-3.5 px-4">Medicine</th>
+                <th class="py-3.5 px-4">Dosage</th>
+                <th class="py-3.5 px-4">Scheduled Time</th>
+                <th class="py-3.5 px-4">Status</th>
+                <th class="py-3.5 px-4">Logged At</th>
+                <th class="py-3.5 px-4">Notes</th>
+              </tr>
+            </thead>
+            <tbody id="historyTableBody" class="divide-y divide-slate-100">
+              <!-- Dynamically Populated -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- FORGOT PASSWORD MODAL -->
+  <div id="forgotPasswordModal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl">
+      <h3 class="text-lg font-bold text-slate-900">Reset Your Password</h3>
+      <p class="text-xs text-slate-500 mt-1">Enter your registered email address to receive password reset instructions.</p>
+      <input type="email" id="forgotEmail" placeholder="your-email@example.com" class="w-full mt-4 px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500">
+      <div class="flex items-center justify-end space-x-2 mt-5">
+        <button onclick="closeForgotPasswordModal()" class="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-lg">Cancel</button>
+        <button onclick="submitForgotPassword()" class="px-4 py-2 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg">Send Link</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- JAVASCRIPT APPLICATION CORE -->
+  <script>
+    // INITIAL SEED DATA
+    const INITIAL_USER = {
+      id: "usr_default_001",
+      name: "Sarah Jenkins",
+      email: "sarah.jenkins@example.com",
+      phone: "+1 (555) 234-5678"
+    };
+
+    const INITIAL_MEDICINES = [
+      {
+        id: "med_001",
+        name: "Paracetamol",
+        type: "Tablet",
+        dosage_name: "500 mg tablet",
+        dosage_amount: 500,
+        dosage_unit: "mg",
+        daily_dosage: "1 tablet",
+        dosage_limit: "2 tablets per day",
+        times_per_day: 2,
+        reminder_times: ["08:00 AM", "08:00 PM"],
+        start_date: "2026-09-01",
+        end_date: "2026-10-01",
+        food_relation: "After Food",
+        notes: "Take with water for pain or fever."
+      },
+      {
+        id: "med_002",
+        name: "Amoxicillin",
+        type: "Capsule",
+        dosage_name: "250 mg capsule",
+        dosage_amount: 250,
+        dosage_unit: "mg",
+        daily_dosage: "1 capsule",
+        dosage_limit: "3 capsules per day",
+        times_per_day: 3,
+        reminder_times: ["08:00 AM", "02:00 PM", "09:00 PM"],
+        start_date: "2026-09-20",
+        end_date: "2026-09-30",
+        food_relation: "With Food",
+        notes: "Complete full antibiotic course."
+      },
+      {
+        id: "med_003",
+        name: "Atorvastatin",
+        type: "Tablet",
+        dosage_name: "20 mg tablet",
+        dosage_amount: 20,
+        dosage_unit: "mg",
+        daily_dosage: "1 tablet",
+        dosage_limit: "1 tablet per day",
+        times_per_day: 1,
+        reminder_times: ["09:00 PM"],
+        start_date: "2026-01-01",
+        end_date: "2026-12-31",
+        food_relation: "Before Bed",
+        notes: "Cardiovascular health maintenance."
+      }
+    ];
+
+    const INITIAL_HISTORY = [
+      {
+        id: "log_001",
+        medicine_name: "Paracetamol",
+        dosage: "500 mg tablet",
+        scheduled_time: "08:00 AM",
+        status: "TAKEN",
+        timestamp: "Today at 08:05 AM",
+        notes: "Taken on schedule"
+      }
+    ];
+
+    // APPLICATION STATE
+    let currentUser = JSON.parse(localStorage.getItem('medivoice_user')) || INITIAL_USER;
+    let medicines = JSON.parse(localStorage.getItem('medivoice_medicines')) || INITIAL_MEDICINES;
+    let historyLogs = JSON.parse(localStorage.getItem('medivoice_history')) || INITIAL_HISTORY;
+    let activeDoses = [
+      { id: "dose_1", medId: "med_001", name: "Paracetamol", dosage: "500 mg tablet", time: "08:00 AM", food: "After Food", status: "TAKEN" },
+      { id: "dose_2", medId: "med_002", name: "Amoxicillin", dosage: "250 mg capsule", time: "08:00 AM", food: "With Food", status: "TAKEN" },
+      { id: "dose_3", medId: "med_002", name: "Amoxicillin", dosage: "250 mg capsule", time: "02:00 PM", food: "With Food", status: "PENDING" },
+      { id: "dose_4", medId: "med_001", name: "Paracetamol", dosage: "500 mg tablet", time: "08:00 PM", food: "After Food", status: "PENDING" },
+      { id: "dose_5", medId: "med_003", name: "Atorvastatin", dosage: "20 mg tablet", time: "09:00 PM", food: "Before Bed", status: "PENDING" }
+    ];
+
+    // SPEECH RECOGNITION & SYNTHESIS SETUP
+    let recognition = null;
+    let isListening = false;
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+    if (SpeechRecognition) {
+      recognition = new SpeechRecognition();
+      recognition.continuous = false;
+      recognition.interimResults = true;
+      recognition.lang = 'en-US';
+
+      recognition.onstart = () => {
+        isListening = true;
+        updateVoiceUIState(true);
+      };
+
+      recognition.onresult = (event) => {
+        let transcript = '';
+        for (let i = event.resultIndex; i < event.results.length; ++i) {
+          transcript += event.results[i][0].transcript;
+        }
+        document.getElementById('liveTranscriptBox')?.classList.remove('hidden');
+        const txt = document.getElementById('liveTranscriptText');
+        if (txt) txt.textContent = `"${transcript}"`;
+
+        if (event.results[0].isFinal) {
+          handleVoiceCommand(transcript);
+        }
+      };
+
+      recognition.onerror = (event) => {
+        console.warn('Speech Recognition error:', event.error);
+        updateVoiceUIState(false);
+      };
+
+      recognition.onend = () => {
+        isListening = false;
+        updateVoiceUIState(false);
+      };
+    }
+
+    // CLOCK UPDATE
+    function updateClock() {
+      const now = new Date();
+      const clockEl = document.getElementById('liveClock');
+      const dateEl = document.getElementById('liveDate');
+      if (clockEl) {
+        clockEl.textContent = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
+      }
+      if (dateEl) {
+        dateEl.textContent = now.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric', year: 'numeric' });
+      }
+    }
+    setInterval(updateClock, 1000);
+    updateClock();
+
+    // RENDER APP ON START
+    function initApp() {
+      renderUserAuthUI();
+      renderDashboard();
+      renderSchedule();
+      renderReminderTimeInputs();
+      renderHistory();
+      
+      // Auto-populate Start Date with Today
+      const todayIso = new Date().toISOString().split('T')[0];
+      const startEl = document.getElementById('medStartDate');
+      if (startEl) startEl.value = todayIso;
+    }
+
+    // AUTH TOGGLES & ACTIONS
+    function toggleAuthMode(mode) {
+      const loginForm = document.getElementById('loginForm');
+      const registerForm = document.getElementById('registerForm');
+      const tabLogin = document.getElementById('authTabLogin');
+      const tabRegister = document.getElementById('authTabRegister');
+
+      if (mode === 'login') {
+        loginForm.classList.remove('hidden');
+        registerForm.classList.add('hidden');
+        tabLogin.className = "flex-1 pb-3 text-sm font-bold text-emerald-600 border-b-2 border-emerald-600 transition";
+        tabRegister.className = "flex-1 pb-3 text-sm font-bold text-slate-400 hover:text-slate-600 transition";
+      } else {
+        loginForm.classList.add('hidden');
+        registerForm.classList.remove('hidden');
+        tabRegister.className = "flex-1 pb-3 text-sm font-bold text-emerald-600 border-b-2 border-emerald-600 transition";
+        tabLogin.className = "flex-1 pb-3 text-sm font-bold text-slate-400 hover:text-slate-600 transition";
+      }
+    }
+
+    function togglePasswordVisibility(id) {
+      const field = document.getElementById(id);
+      if (field) {
+        field.type = field.type === 'password' ? 'text' : 'password';
+      }
+    }
+
+    function handleLogin(e) {
+      e.preventDefault();
+      const email = document.getElementById('loginEmail').value.trim();
+      currentUser = {
+        id: "usr_" + Math.random().toString(36).substr(2, 6),
+        name: email.includes('sarah') ? "Sarah Jenkins" : email.split('@')[0],
+        email: email
+      };
+      localStorage.setItem('medivoice_user', JSON.stringify(currentUser));
+      renderUserAuthUI();
+      switchTab('dashboard');
+      speakText(`Welcome back, ${currentUser.name}. Your medicine schedule is up to date.`);
+    }
+
+    function handleRegister(e) {
+      e.preventDefault();
+      const name = document.getElementById('regName').value.trim();
+      const email = document.getElementById('regEmail').value.trim();
+      const phone = document.getElementById('regPhone').value.trim();
+      const pass = document.getElementById('regPassword').value;
+      const conf = document.getElementById('regConfirmPassword').value;
+
+      if (pass !== conf) {
+        alert("Passwords do not match!");
+        return;
+      }
+
+      currentUser = {
+        id: "usr_" + Math.random().toString(36).substr(2, 6),
+        name: name,
+        email: email,
+        phone: phone
+      };
+      localStorage.setItem('medivoice_user', JSON.stringify(currentUser));
+      renderUserAuthUI();
+      switchTab('dashboard');
+      speakText(`Welcome to MediVoice AI, ${currentUser.name}. Let's set up your medicine reminders.`);
+    }
+
+    function logout() {
+      currentUser = null;
+      localStorage.removeItem('medivoice_user');
+      renderUserAuthUI();
+      switchTab('auth');
+    }
+
+    function renderUserAuthUI() {
+      const userHeader = document.getElementById('userHeaderBlock');
+      const authBtn = document.getElementById('authBtn');
+      const mainNav = document.getElementById('mainNav');
+      const nameEl = document.getElementById('headerUserName');
+      const avatarEl = document.getElementById('userAvatar');
+      const dashUser = document.getElementById('dashGreetingUser');
+
+      if (currentUser) {
+        userHeader.classList.remove('hidden');
+        userHeader.classList.add('flex');
+        authBtn.classList.add('hidden');
+        mainNav.classList.remove('hidden');
+        if (nameEl) nameEl.textContent = currentUser.name;
+        if (dashUser) dashUser.textContent = currentUser.name;
+        if (avatarEl) {
+          const initials = currentUser.name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
+          avatarEl.textContent = initials || 'U';
+        }
+      } else {
+        userHeader.classList.add('hidden');
+        userHeader.classList.remove('flex');
+        authBtn.classList.remove('hidden');
+      }
+    }
+
+    // TAB NAVIGATION
+    function switchTab(tabName) {
+      const views = ['auth', 'dashboard', 'schedule', 'add-medicine', 'voice', 'history'];
+      views.forEach(v => {
+        const el = document.getElementById(`view-${v}`);
+        if (el) el.classList.add('hidden');
+      });
+
+      const target = document.getElementById(`view-${tabName}`);
+      if (target) target.classList.remove('hidden');
+
+      // Update Nav active styling
+      document.querySelectorAll('.nav-btn').forEach(btn => {
+        if (btn.getAttribute('data-tab') === tabName) {
+          btn.className = "nav-btn active px-3.5 py-2 rounded-lg text-sm font-semibold text-emerald-700 bg-emerald-50 transition";
+        } else {
+          btn.className = "nav-btn px-3.5 py-2 rounded-lg text-sm font-semibold text-slate-700 hover:text-emerald-600 hover:bg-emerald-50 transition";
+        }
+      });
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    // DASHBOARD RENDERING & METRICS
+    function renderDashboard() {
+      const total = activeDoses.length;
+      const taken = activeDoses.filter(d => d.status === 'TAKEN').length;
+      const pending = activeDoses.filter(d => d.status === 'PENDING').length;
+      const missed = activeDoses.filter(d => d.status === 'MISSED').length;
+
+      document.getElementById('statTotal').textContent = total;
+      document.getElementById('statTaken').textContent = taken;
+      document.getElementById('statPending').textContent = pending;
+      document.getElementById('statMissed').textContent = missed;
+
+      // Find next reminder
+      const nextDose = activeDoses.find(d => d.status === 'PENDING') || activeDoses[0];
+      if (nextDose) {
+        document.getElementById('nextMedName').textContent = nextDose.name + " (" + nextDose.dosage + ")";
+        document.getElementById('nextMedTime').textContent = nextDose.time;
+      }
+
+      // Render timeline cards on dashboard
+      const timeline = document.getElementById('scheduleTimeline');
+      if (timeline) {
+        timeline.innerHTML = activeDoses.map(dose => `
+          <div class="flex items-center justify-between p-4 rounded-xl border ${dose.status === 'TAKEN' ? 'bg-emerald-50/40 border-emerald-200' : 'bg-white border-slate-200'} transition hover:shadow-sm">
+            <div class="flex items-center space-x-3.5">
+              <div class="w-10 h-10 rounded-xl ${dose.status === 'TAKEN' ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-700'} flex items-center justify-center font-bold text-sm">
+                ${dose.status === 'TAKEN' ? '✓' : '💊'}
+              </div>
+              <div>
+                <div class="flex items-center space-x-2">
+                  <span class="font-bold text-slate-900 text-sm">${dose.name}</span>
+                  <span class="text-xs text-slate-500 font-medium">(${dose.dosage})</span>
+                </div>
+                <div class="flex items-center space-x-2 mt-0.5">
+                  <span class="text-xs font-mono font-semibold text-emerald-600">${dose.time}</span>
+                  <span class="text-[11px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full font-medium">${dose.food}</span>
+                </div>
+              </div>
+            </div>
+            <div class="flex items-center space-x-2">
+              ${dose.status === 'TAKEN' ? `
+                <span class="text-xs font-bold text-emerald-600 bg-emerald-100 px-3 py-1 rounded-lg">Taken</span>
+              ` : `
+                <button onclick="markDoseStatus('${dose.id}', 'TAKEN')" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-3 py-1.5 rounded-lg shadow-sm transition">Take</button>
+                <button onclick="markDoseStatus('${dose.id}', 'SNOOZE')" class="bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold px-2.5 py-1.5 rounded-lg transition">Snooze</button>
+              `}
+            </div>
+          </div>
+        `).join('');
+      }
+    }
+
+    // FULL SCHEDULE VIEW
+    function renderSchedule() {
+      const container = document.getElementById('fullScheduleList');
+      if (!container) return;
+
+      container.innerHTML = activeDoses.map(dose => `
+        <div class="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-4">
+          <div class="flex items-start justify-between">
+            <div>
+              <span class="text-[10px] font-bold uppercase tracking-wider text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded">${dose.food}</span>
+              <h3 class="text-base font-bold text-slate-900 mt-1">${dose.name}</h3>
+              <p class="text-xs text-slate-500">${dose.dosage}</p>
+            </div>
+            <span class="text-xs font-mono font-bold text-slate-700 bg-slate-100 px-2.5 py-1 rounded-lg">${dose.time}</span>
+          </div>
+
+          <div class="flex items-center justify-between pt-3 border-t border-slate-100 text-xs">
+            <span class="font-bold ${dose.status === 'TAKEN' ? 'text-emerald-600' : 'text-amber-600'}">Status: ${dose.status}</span>
+            <div class="space-x-1.5">
+              ${dose.status !== 'TAKEN' ? `
+                <button onclick="markDoseStatus('${dose.id}', 'TAKEN')" class="bg-emerald-600 text-white px-3 py-1 rounded-md font-bold hover:bg-emerald-700 transition">Take</button>
+                <button onclick="markDoseStatus('${dose.id}', 'SKIP')" class="bg-red-50 text-red-600 px-2.5 py-1 rounded-md font-semibold hover:bg-red-100 transition">Skip</button>
+              ` : `
+                <span class="text-emerald-700 font-semibold text-xs">Logged ✅</span>
+              `}
+            </div>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    // DOSAGE & REMINDER INPUT GENERATOR
+    function renderReminderTimeInputs() {
+      const count = parseInt(document.getElementById('timesPerDay').value) || 1;
+      const container = document.getElementById('reminderTimesContainer');
+      const defaultTimes = ["08:00 AM", "02:00 PM", "08:00 PM", "10:00 PM"];
+
+      let html = '';
+      for (let i = 0; i < count; i++) {
+        html += `
+          <div>
+            <span class="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Dose #${i+1}</span>
+            <input type="text" id="remTime_${i}" value="${defaultTimes[i] || '12:00 PM'}" class="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-mono text-center font-bold text-slate-800 focus:ring-2 focus:ring-emerald-500">
+          </div>
+        `;
+      }
+      container.innerHTML = html;
+    }
+
+    // ADD MEDICINE HANDLER
+    function handleAddMedicine(e) {
+      e.preventDefault();
+      const name = document.getElementById('medName').value.trim();
+      const type = document.getElementById('medType').value;
+      const dosageName = document.getElementById('dosageName').value.trim();
+      const dosageAmount = document.getElementById('dosageAmount').value;
+      const dosageUnit = document.getElementById('dosageUnit').value;
+      const dosageLimit = document.getElementById('dosageLimit').value.trim();
+      const dailyDosage = document.getElementById('dailyDosage').value.trim();
+      const timesCount = parseInt(document.getElementById('timesPerDay').value);
+      const startDate = document.getElementById('medStartDate').value;
+      const endDate = document.getElementById('medEndDate').value;
+      const foodRelation = document.getElementById('foodRelation').value;
+      const notes = document.getElementById('medNotes').value.trim();
+
+      const reminderTimes = [];
+      for (let i = 0; i < timesCount; i++) {
+        const timeVal = document.getElementById(`remTime_${i}`)?.value || "08:00 AM";
+        reminderTimes.push(timeVal);
+      }
+
+      const newMed = {
+        id: "med_" + Math.random().toString(36).substr(2, 6),
+        name,
+        type,
+        dosage_name: dosageName,
+        dosage_amount: dosageAmount,
+        dosage_unit: dosageUnit,
+        dosage_limit: dosageLimit,
+        daily_dosage: dailyDosage,
+        times_per_day: timesCount,
+        reminder_times: reminderTimes,
+        start_date: startDate,
+        end_date: endDate,
+        food_relation: foodRelation,
+        notes
+      };
+
+      medicines.push(newMed);
+      localStorage.setItem('medivoice_medicines', JSON.stringify(medicines));
+
+      // Append new doses for today
+      reminderTimes.forEach((rt, index) => {
+        activeDoses.push({
+          id: "dose_" + Math.random().toString(36).substr(2, 6),
+          medId: newMed.id,
+          name: newMed.name,
+          dosage: newMed.dosage_name,
+          time: rt,
+          food: newMed.food_relation,
+          status: "PENDING"
+        });
+      });
+
+      renderDashboard();
+      renderSchedule();
+      switchTab('dashboard');
+      speakText(`Medicine ${newMed.name} has been added to your schedule with ${timesCount} daily reminders.`);
+    }
+
+    // DOSE STATUS ACTIONS
+    function markDoseStatus(doseId, action) {
+      const dose = activeDoses.find(d => d.id === doseId);
+      if (!dose) return;
+
+      if (action === 'TAKEN') {
+        dose.status = 'TAKEN';
+        // Add to history
+        const log = {
+          id: "log_" + Math.random().toString(36).substr(2, 6),
+          medicine_name: dose.name,
+          dosage: dose.dosage,
+          scheduled_time: dose.time,
+          status: "TAKEN",
+          timestamp: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
+          notes: "Marked as taken"
+        };
+        historyLogs.unshift(log);
+        localStorage.setItem('medivoice_history', JSON.stringify(historyLogs));
+        renderHistory();
+        speakText(`Dose of ${dose.name} recorded as taken.`);
+      } else if (action === 'SNOOZE') {
+        speakText(`Snoozed ${dose.name} for 10 minutes.`);
+        triggerBrowserAlert(`Snoozed ${dose.name}. Next reminder in 10 minutes.`);
+      } else if (action === 'SKIP') {
+        dose.status = 'SKIPPED';
+        const log = {
+          id: "log_" + Math.random().toString(36).substr(2, 6),
+          medicine_name: dose.name,
+          dosage: dose.dosage,
+          scheduled_time: dose.time,
+          status: "SKIPPED",
+          timestamp: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
+          notes: "Skipped by patient"
+        };
+        historyLogs.unshift(log);
+        renderHistory();
+      }
+
+      renderDashboard();
+      renderSchedule();
+    }
+
+    // HISTORY RENDERER
+    function renderHistory() {
+      const tbody = document.getElementById('historyTableBody');
+      if (!tbody) return;
+
+      if (historyLogs.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="6" class="text-center py-6 text-slate-400 text-xs">No medicine history logged yet.</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = historyLogs.map(log => `
+        <tr class="hover:bg-slate-50 transition">
+          <td class="py-3 px-4 font-bold text-slate-900">${log.medicine_name}</td>
+          <td class="py-3 px-4">${log.dosage}</td>
+          <td class="py-3 px-4 font-mono font-semibold text-xs">${log.scheduled_time}</td>
+          <td class="py-3 px-4">
+            <span class="inline-block px-2.5 py-0.5 rounded-full text-[11px] font-bold ${log.status === 'TAKEN' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}">
+              ${log.status}
+            </span>
+          </td>
+          <td class="py-3 px-4 text-xs text-slate-500">${log.timestamp}</td>
+          <td class="py-3 px-4 text-xs text-slate-500">${log.notes || '—'}</td>
+        </tr>
+      `).join('');
+    }
+
+    function exportHistoryCSV() {
+      let csv = "Medicine,Dosage,Scheduled Time,Status,Timestamp,Notes\n";
+      historyLogs.forEach(l => {
+        csv += `"${l.medicine_name}","${l.dosage}","${l.scheduled_time}","${l.status}","${l.timestamp}","${l.notes}"\n`;
+      });
+      const blob = new Blob([csv], { type: 'text/csv' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.setAttribute('href', url);
+      a.setAttribute('download', `medivoice_medical_report_${new Date().toISOString().split('T')[0]}.csv`);
+      a.click();
+    }
+
+    // VOICE LOGIC & TEXT-TO-SPEECH
+    function toggleVoiceRecognition() {
+      if (!recognition) {
+        alert("Speech Recognition is not supported by your current browser. You can still test voice queries using the quick query buttons!");
+        return;
+      }
+      if (isListening) {
+        recognition.stop();
+      } else {
+        try {
+          recognition.start();
+        } catch (e) {
+          console.warn("Recognition already started", e);
+        }
+      }
+    }
+
+    function updateVoiceUIState(listening) {
+      const btn1 = document.getElementById('voiceBtnDashboard');
+      const btn2 = document.getElementById('mainVoiceMic');
+      const stat1 = document.getElementById('voiceStatusDashboard');
+      const stat2 = document.getElementById('mainVoiceStatus');
+
+      if (listening) {
+        if (btn1) btn1.className = "w-16 h-16 rounded-full bg-red-500 text-white flex items-center justify-center text-2xl shadow-lg voice-pulse";
+        if (btn2) btn2.className = "w-24 h-24 rounded-full bg-red-500 text-white flex items-center justify-center text-4xl shadow-2xl voice-pulse";
+        if (stat1) stat1.textContent = "Listening to you...";
+        if (stat2) stat2.textContent = "Listening... Speak now";
+      } else {
+        if (btn1) btn1.className = "w-16 h-16 rounded-full bg-emerald-500 hover:bg-emerald-600 text-white flex items-center justify-center text-2xl shadow-lg transition";
+        if (btn2) btn2.className = "w-24 h-24 rounded-full bg-emerald-500 hover:bg-emerald-600 text-white flex items-center justify-center text-4xl shadow-2xl transition";
+        if (stat1) stat1.textContent = "Click to speak to MediVoice";
+        if (stat2) stat2.textContent = "Tap microphone to speak";
+      }
+    }
+
+    function speakText(text) {
+      if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.rate = 1.0;
+        utterance.pitch = 1.0;
+        window.speechSynthesis.speak(utterance);
+      }
+    }
+
+    function executeVoiceQuery(text) {
+      handleVoiceCommand(text);
+    }
+
+    function handleVoiceCommand(rawText) {
+      const query = rawText.trim().toLowerCase();
+      appendVoiceChatMessage(rawText, 'user');
+
+      let reply = "";
+
+      // Intent Matching
+      if (query.includes("what medicine") || query.includes("schedule") || query.includes("today")) {
+        const pendingNames = activeDoses.filter(d => d.status === 'PENDING').map(d => `${d.name} at ${d.time}`);
+        if (pendingNames.length > 0) {
+          reply = `You have ${pendingNames.length} upcoming doses today: ${pendingNames.join(', ')}.`;
+        } else {
+          reply = "You have completed all scheduled medicines for today!";
+        }
+      } else if (query.includes("took") || query.includes("taken") || query.includes("mark")) {
+        let matched = false;
+        for (const dose of activeDoses) {
+          if (query.includes(dose.name.toLowerCase())) {
+            markDoseStatus(dose.id, 'TAKEN');
+            reply = `Recorded! I marked your dose of ${dose.name} (${dose.dosage}) as taken.`;
+            matched = true;
+            break;
+          }
+        }
+        if (!matched) {
+          reply = "I heard you took your medicine, but which one did you take? You can say 'I took Paracetamol'.";
+        }
+      } else if (query.includes("next") || query.includes("upcoming")) {
+        const nextDose = activeDoses.find(d => d.status === 'PENDING');
+        if (nextDose) {
+          reply = `Your next scheduled dose is ${nextDose.name}, ${nextDose.dosage} at ${nextDose.time}. Remember to take it ${nextDose.food}.`;
+        } else {
+          reply = "No further medicines scheduled for today.";
+        }
+      } else {
+        reply = `I processed "${rawText}". I can help you check today's schedule, tell you when your next dose is, or mark medicines as taken.`;
+      }
+
+      setTimeout(() => {
+        appendVoiceChatMessage(reply, 'ai');
+        speakText(reply);
+      }, 400);
+    }
+
+    function appendVoiceChatMessage(text, sender) {
+      const log = document.getElementById('voiceChatLog');
+      if (!log) return;
+
+      const bubble = document.createElement('div');
+      bubble.className = "flex items-start space-x-3";
+      if (sender === 'user') {
+        bubble.innerHTML = `
+          <div class="w-8 h-8 rounded-full bg-slate-200 text-slate-700 flex items-center justify-center font-bold text-xs">
+            You
+          </div>
+          <div class="bg-emerald-50 rounded-2xl rounded-tl-none p-3 max-w-md text-xs text-slate-800 font-medium">
+            "${text}"
+          </div>
+        `;
+      } else {
+        bubble.innerHTML = `
+          <div class="w-8 h-8 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold text-xs">
+            AI
+          </div>
+          <div class="bg-slate-100 rounded-2xl rounded-tl-none p-3 max-w-md text-xs text-slate-800">
+            ${text}
+          </div>
+        `;
+      }
+      log.appendChild(bubble);
+      log.scrollTop = log.scrollHeight;
+    }
+
+    function clearVoiceLog() {
+      const log = document.getElementById('voiceChatLog');
+      if (log) log.innerHTML = '';
+    }
+
+    // BROWSER NOTIFICATIONS
+    function requestNotificationAccess() {
+      if ('Notification' in window) {
+        Notification.requestPermission().then(permission => {
+          if (permission === 'granted') {
+            triggerBrowserAlert("MediVoice AI notifications active!");
+          } else {
+            alert("Notification permission was denied.");
+          }
+        });
+      } else {
+        alert("Browser notifications are not supported on this platform.");
+      }
+    }
+
+    function triggerBrowserAlert(message) {
+      if ('Notification' in window && Notification.permission === 'granted') {
+        new Notification("MediVoice AI Medicine Reminder", {
+          body: message,
+          icon: "💊"
+        });
+      }
+      // Also show on-screen banner
+      const banner = document.getElementById('alarmBanner');
+      const text = document.getElementById('alarmBannerText');
+      if (banner && text) {
+        text.textContent = message;
+        banner.classList.remove('hidden');
+      }
+    }
+
+    function dismissAlarm(markTaken) {
+      const banner = document.getElementById('alarmBanner');
+      if (banner) banner.classList.add('hidden');
+      if (markTaken) {
+        const pending = activeDoses.find(d => d.status === 'PENDING');
+        if (pending) markDoseStatus(pending.id, 'TAKEN');
+      }
+    }
+
+    // MODAL HANDLERS
+    function showForgotPasswordModal() {
+      document.getElementById('forgotPasswordModal')?.classList.remove('hidden');
+    }
+    function closeForgotPasswordModal() {
+      document.getElementById('forgotPasswordModal')?.classList.add('hidden');
+    }
+    function submitForgotPassword() {
+      const email = document.getElementById('forgotEmail')?.value;
+      if (email) {
+        alert(`Password reset link sent to ${email}`);
+        closeForgotPasswordModal();
+      }
+    }
+
+    // INITIALIZE ON LOAD
+    window.addEventListener('DOMContentLoaded', initApp);
+  </script>
+</body>
+</html>

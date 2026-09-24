@@ -1,0 +1,20 @@
+{
+  "name": "medivoice-ai",
+  "version": "1.0.0",
+  "description": "MediVoice AI - Medicine Reminder and Voice Assistant Web Application",
+  "main": "index.html",
+  "scripts": {
+    "dev": "python3 api/index.py",
+    "start": "python3 api/index.py",
+    "build": "echo 'Build successful'"
+  },
+  "keywords": [
+    "medicine",
+    "reminder",
+    "voice-assistant",
+    "healthcare",
+    "medivoice"
+  ],
+  "author": "MediVoice AI Team",
+  "license": "MIT"
+}
